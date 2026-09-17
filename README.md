@@ -2,7 +2,9 @@
 
 在 **Jetson AGX Orin** 上用 [stable-diffusion.cpp](https://github.com/leejet/stable-diffusion.cpp) 部署 **Z-Image-Turbo**（6B DiT）文生图服务，配一个自带图库的网页 UI，支持**中文提示词**。
 
-本仓库只放**部署代码、脚本与文档**，不含模型权重（下面有下载地址）。
+本仓库是**源码归档**，只放部署代码、脚本与文档，不含模型权重。权重一条命令下回来（自动校验哈希）：`./deploy/download-weights.sh`。完整的"有什么、没有什么、怎么从零恢复"见 **[MANIFEST.md](MANIFEST.md)**。
+
+仓库里还有第二个项目 **[`spacemit-k3/`](spacemit-k3/)** —— 同样的事在 **SpacemiT K3**（Bianbu / riscv64 / NPU）上做过一遍，RVV 向量 + A100 AI 核，SD-Turbo 512² 一步约 102 秒。两套东西共用一份代码结构，但硬件完全不同，互不影响。
 
 ## 实测数据
 
@@ -55,28 +57,43 @@ total params memory size = 7288.11MB (VRAM 7288.11MB, RAM 0.00MB)
 
 ## 模型
 
-| 文件 | 大小 | 作用 | 来源 |
-| --- | --- | --- | --- |
-| `z_image_turbo-Q4_K_M.gguf` | 4.98 GB | 6B DiT 主模型 | [jayn7/Z-Image-Turbo-GGUF](https://www.modelscope.cn/models/jayn7/Z-Image-Turbo-GGUF) |
-| `Qwen3-4B-Instruct-2507-Q4_K_M.gguf` | 2.50 GB | 文本编码器 | [unsloth/Qwen3-4B-Instruct-2507-GGUF](https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF) |
-| `ae.safetensors` | 0.34 GB | Flux VAE | [black-forest-labs/FLUX.1-schnell](https://huggingface.co/black-forest-labs/FLUX.1-schnell) |
+三个文件统一放到设备上的 `models/zimage/`。**一条命令下回来**，脚本逐个核对 SHA-256：
 
-统一放到设备上的 `models/zimage/` 下。
+```bash
+./deploy/download-weights.sh
+```
+
+| 文件 | 大小 | 作用 | 来源 | SHA-256（前 16 位） |
+| --- | --- | --- | --- | --- |
+| `z_image_turbo-Q4_K_M.gguf` | 4.98 GB | 6B DiT 主模型 | [jayn7/Z-Image-Turbo-GGUF](https://www.modelscope.cn/models/jayn7/Z-Image-Turbo-GGUF) | `745ec270db042409` |
+| `Qwen3-4B-Instruct-2507-Q4_K_M.gguf` | 2.50 GB | 文本编码器 | [unsloth/Qwen3-4B-Instruct-2507-GGUF](https://www.modelscope.cn/models/unsloth/Qwen3-4B-Instruct-2507-GGUF) | `3605803b982cb64a` |
+| `ae.safetensors` | 0.34 GB | Flux VAE | [black-forest-labs/FLUX.1-schnell](https://www.modelscope.cn/models/black-forest-labs/FLUX.1-schnell) | `afc8e28272cd15db` |
+
+实测哈希与发布页公布值逐字节一致，所以下到的就是本文所有数据所依据的那一份。
 
 ## 快速开始
+
+### 0. 拿权重
+
+```bash
+./deploy/download-weights.sh       # 7.8 GB，自动校验 SHA-256，下到 models/zimage/
+```
+
+走 **ModelScope**（Hugging Face 在构建这套环境的网络上连不通，详见 [MANIFEST.md](MANIFEST.md#为什么走-modelscope-而不是-hugging-face)）。
 
 ### 1. 编译 stable-diffusion.cpp
 
 ```bash
 git clone https://github.com/leejet/stable-diffusion.cpp
 cd stable-diffusion.cpp
+git checkout 59c23bc               # 锁死这个 commit，master 不保证兼容
 cmake -B build -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
   -DSD_BUILD_EXAMPLES=ON \
   -DSD_CUDA=ON \
   -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc \
   -DCMAKE_CUDA_ARCHITECTURES=87
-cmake --build build -j$(nproc)
+cmake --build build -j$(nproc)     # 实测 8.1 分钟，393 个目标
 ```
 
 `CMAKE_CUDA_ARCHITECTURES=87` 必须写对，Orin 是 **sm_87**，不指定会编译出错误的 SASS。产物约 233 MB。
@@ -144,29 +161,45 @@ if (guidance->img_cfg != guidance->txt_cfg) {
 
 ```
 .
+├── MANIFEST.md                  # 归档清单：有什么、没什么、怎么从零恢复
 ├── deploy/
+│   ├── download-weights.sh      # 下三个权重并校验 SHA-256（走 ModelScope）
 │   ├── webui.py                 # 网页 UI + 图库服务（stdlib only）
 │   ├── web/index.html           # 单页前端
 │   ├── run.sh                   # 便捷入口（generate / serve / devices / bench）
 │   ├── imagegen.service         # sd-server 的 systemd 单元
 │   ├── imageui.service          # webui.py 的 systemd 单元
 │   ├── gpu_watch.sh             # 生成一次并采样全程 tegrastats 轨迹
+│   ├── bench_zimage.sh          # 命令行 sd-cli 基准
+│   ├── bench_zimage_server.sh   # 服务常驻 sd-server 基准
 │   ├── steps_seed_demo.sh       # 步数 / 种子 对照实验
 │   ├── make_contact_sheet.py    # 把对照实验拼成带标注的对比图
 │   ├── probe_api.py             # 探测 API 到底认哪些参数
-│   └── probe_meta.py            # 读 PNG 元数据，确认服务端实际用了什么
+│   ├── probe_meta.py            # 读 PNG 元数据，确认服务端实际用了什么
+│   └── zh_payload.json          # 中文提示词的请求体样例
 ├── docs/
 │   ├── deployment-jetson-orin.md  # 部署说明（含完整参数建议与已知问题）
-│   └── summary-zh.md              # 完整的选型 / 性能 / 踩坑总结
+│   ├── summary-zh.md              # 完整的选型 / 性能 / 踩坑总结
+│   ├── requirements-export.txt    # PC 侧导出环境（torch / diffusers / onnx）
+│   └── requirements-k3.txt        # K3 侧依赖说明（NPU 栈是 apt 包）
 ├── tools/
 │   └── rcmd.py                  # 通过 SSH 在设备上跑命令、传文件
-└── samples/                     # 示例出图（保留 PNG 参数元数据）
+├── samples/                     # Z-Image 示例出图（保留 PNG 参数元数据）
+└── spacemit-k3/                 # 另一个项目：同样的活干在 SpacemiT K3 上
+    ├── README.md  DEPLOY.md     # 复现指南与硬件侦查结论
+    ├── export/                  # SD-Turbo → ONNX 导出与 parity 调试
+    ├── runtime/                 # 设备侧推理：generate / server / validate
+    ├── tools/                   # NPU A/B 测试、ONNX 传输
+    ├── deploy/                  # 释放内存、NPU 探针、ggml shim 与 cmake 配置
+    └── samples/                 # K3 上的出图
 ```
 
 ## 文档
 
+- **[MANIFEST.md](MANIFEST.md)** —— 归档清单：哪些在仓库里、哪些不在、每一样怎么拿回来、要多久。
 - **[docs/deployment-jetson-orin.md](docs/deployment-jetson-orin.md)** —— 部署说明：编译、参数建议、系统服务管理、已知问题。
 - **[docs/summary-zh.md](docs/summary-zh.md)** —— 完整总结：选型过程与结论、实测性能、中文提示词实测、6 个踩过的坑及解法、运维手册、关键数字速查。
+- **[spacemit-k3/README.md](spacemit-k3/README.md)** —— SpacemiT K3 那套的说明；`DEPLOY.md` 里有完整的硬件侦查结论（A100 两条入口只有一条通）。
 
 ## 已知问题
 

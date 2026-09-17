@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Python packages for the SpacemiT K3 (riscv64) side of spacemit-k3/.
+#
+# Almost nothing here comes from pip. The NPU stack (onnxruntime + SpacemiT
+# execution provider) ships as Bianbu/Debian packages, because the wheel does
+# not exist for riscv64. Everything else is already in the Bianbu image.
+#
+#   # NPU stack — apt only, no pip equivalent on riscv64
+#   sudo apt install python3-spacemit-ort        # 2.0.7+2
+#   # provides: onnxruntime 1.24.2+spacemit.a1, spacemit_ort,
+#   #           libspacemit_ep.so.2.0.7, libspert.so.0.6.2 (Spine runtime)
+#
+#   # everything else was already present on Bianbu 4.0.7
+#   pip3 install --break-system-packages -r docs/requirements-k3.txt
+#
+# Verified on the device with `pip3 freeze` / `dpkg -l`:
+#   onnxruntime 1.24.2+spacemit.a1   numpy 2.5.3   Pillow 12.1.1
+#   python3-spacemit-ort 2.0.7+2
+
+numpy>=2.0
+Pillow>=11.0

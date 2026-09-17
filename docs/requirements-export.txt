@@ -1,0 +1,24 @@
+# Python packages for export/export_sd_onnx.py — the PC-side ONNX exporter.
+#
+# Captured from the working environment (Python 3.11.7, Windows, CPU-only torch).
+# torch is the CPU wheel on purpose: the exporter only needs to run the reference
+# modules once to dump parity tensors, and there is no GPU on the export host.
+#
+#   python -m venv --system-site-packages .venv
+#   ./.venv/Scripts/python.exe -m pip install -r docs/requirements-export.txt
+#
+# The --system-site-packages flag is deliberate: torch is ~2 GB and stays in the
+# system interpreter, so the venv only shadows the packages that actually
+# conflicted (diffusers vs the system's transformers/hub).
+
+torch==2.13.0+cpu
+transformers==4.44.2
+diffusers==0.31.0
+huggingface-hub==0.35.3
+safetensors==0.8.0
+onnx==1.21.0
+onnxruntime==1.24.3
+numpy==1.26.4
+Pillow==12.3.0
+protobuf==4.25.9
+tokenizers==0.19.1
