@@ -44,6 +44,19 @@ total params memory size = 7288.11MB (VRAM 7288.11MB, RAM 0.00MB)
 
 **中文提示词可以直接用，不需要翻译成英文。** 文本编码器是 Qwen3-4B-Instruct-2507（通义千问系列），中文是它的母语级能力。同样参数下中文 12.29 s / 英文 12.28 s，耗时基本一致。而且模型对中国特有概念的先验更准——上面那张苏州园林出的是白墙、黛瓦、木质回廊、漏窗花窗、屋顶瓦当，建筑语汇全部正确，这类题材用英文反而容易画成日式庭院。
 
+### 实验对照图
+
+`samples/` 里另外几张是调试过程中的对照，用来验证配置而不是展示效果：
+
+| 文件 | 在验证什么 |
+| --- | --- |
+| `en_fox_512.png` / `zh_fox_512.png` | 同参数（512²、8 步、seed 42）中英文提示词对照，耗时 12.28 s vs 12.29 s |
+| `jetson_zimg_1024_s4.png` / `_s8.png` | 同 seed 下 4 步与 8 步的差异 |
+| `ui_fox_1024.png` | **走网页 UI 出的图，与命令行的 `fox-1024.png` 像素完全一致**——同参数同 seed，解压后 3146752 字节逐字节相同。说明 UI 那条「走私参数」的路径没有引入任何偏差 |
+| `jetson_svc_lighthouse.png` + `.json` | 走 HTTP API（`/v1/images/generations`）出的图，`.json` 是当次响应体 |
+| `jetson_zimage_512.png` | 早期命令行基线，`Sampler: euler discrete` |
+| `steps_seed_sheet.png` | 把步数 / 种子对照实验拼成的带标注对比图，由 `deploy/make_contact_sheet.py` 生成 |
+
 ## 硬件与软件
 
 | 项目 | 值 |
