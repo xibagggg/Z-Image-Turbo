@@ -3,10 +3,19 @@
 #
 #   ./download-weights.sh [target_dir]        # default: models/zimage
 #
-# Everything here goes through ModelScope. Hugging Face is NOT reachable from
-# the networks this was built on (huggingface.co and hf-mirror.com both fail to
-# complete a TLS handshake), and ModelScope carries all three files with
-# byte-identical hashes, so it is the reliable path.
+# Everything here goes through ModelScope, for two separate reasons:
+#
+#   * huggingface.co is unreachable from the networks this was built on. On the
+#     Jetson it fails outright (curl gets no connection in 0.02 s); on the PC the
+#     name resolves but the TLS handshake never completes.
+#   * hf-mirror.com IS reachable from the PC (5/5 requests returned 200) but is
+#     both slower (2.7 MiB/s vs 6.0 MiB/s measured on the same file) and
+#     incomplete: FLUX.1-schnell is a gated repo there, so ae.safetensors comes
+#     back as a 183-byte error page instead of the real 335 MB file.
+#
+# ModelScope serves all three with byte-identical hashes, so it is the one
+# channel that covers the whole set. A mirror fallback for the first two files
+# is documented in MANIFEST.md.
 #
 # Re-running is cheap: files that already match their hash are skipped.
 set -euo pipefail
@@ -25,11 +34,13 @@ FILES=(
 
 mkdir -p "$DEST"
 
+check() { sha256sum "$1" | cut -d' ' -f1; }
+
 for entry in "${FILES[@]}"; do
   IFS='|' read -r name url want size <<<"$entry"
   out="$DEST/$name"
 
-  if [ -f "$out" ] && [ "$(sha256sum "$out" | cut -d' ' -f1)" = "$want" ]; then
+  if [ -f "$out" ] && [ "$(check "$out")" = "$want" ]; then
     echo "[skip] $name already present and correct"
     continue
   fi
@@ -38,16 +49,27 @@ for entry in "${FILES[@]}"; do
   # -C - resumes a partial download instead of starting over
   curl -fL --retry 5 --retry-delay 3 -C - -o "$out" "$url"
 
-  got="$(sha256sum "$out" | cut -d' ' -f1)"
+  if [ "$(check "$out")" != "$want" ]; then
+    # Resume cannot repair a file that is already the right length but wrong
+    # content: curl would see nothing left to fetch and return the same bad
+    # file forever. Start over once from an empty file before giving up.
+    echo "[warn] $name did not match; discarding and re-downloading from scratch" >&2
+    rm -f "$out"
+    curl -fL --retry 5 --retry-delay 3 -o "$out" "$url"
+  fi
+
+  got="$(check "$out")"
   if [ "$got" != "$want" ]; then
-    echo "[FAIL] $name hash mismatch" >&2
+    echo "[FAIL] $name hash mismatch after a clean re-download" >&2
     echo "       want $want" >&2
     echo "       got  $got" >&2
+    echo "       The upstream file may have been re-uploaded; check the" >&2
+    echo "       release page before trusting this copy." >&2
     exit 1
   fi
   echo "[ ok ] $name"
 done
 
 echo
-echo "all three weights verified under $DEST"
+echo "all ${#FILES[@]} weights verified under $DEST"
 du -sh "$DEST"
