@@ -1,0 +1,21 @@
+# Model weights (multi-GB, pulled from the sources listed in README.md)
+models/
+*.gguf
+*.safetensors
+
+# Build output and virtualenvs
+build/
+*.venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Generated images and logs
+output/
+*.log
+
+# Editor / OS noise
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

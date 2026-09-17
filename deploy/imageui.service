@@ -1,0 +1,20 @@
+[Unit]
+Description=Z-Image Studio web UI (proxy to sd-server on 8080)
+After=network-online.target imagegen.service
+Wants=network-online.target imagegen.service
+
+[Service]
+Type=simple
+User=bianbu
+WorkingDirectory=/home/bianbu/image-generation
+Environment=SD_API=http://127.0.0.1:8080
+Environment=UI_PORT=8081
+ExecStart=/usr/bin/python3 /home/bianbu/image-generation/webui.py
+Restart=always
+RestartSec=5
+Nice=5
+StandardOutput=append:/home/bianbu/image-generation/webui.log
+StandardError=append:/home/bianbu/image-generation/webui.log
+
+[Install]
+WantedBy=multi-user.target

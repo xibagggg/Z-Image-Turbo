@@ -1,0 +1,26 @@
+[Unit]
+Description=Z-Image-Turbo text-to-image HTTP service (Jetson AGX Orin, CUDA)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=bianbu
+WorkingDirectory=/home/bianbu/image-generation
+Environment=STEPS=8
+Environment=WIDTH=1024
+Environment=HEIGHT=1024
+Environment=PORT=8080
+ExecStart=/home/bianbu/image-generation/run.sh serve
+Restart=on-failure
+RestartSec=10
+# Model load + first inference needs headroom; give it time before systemd gives up.
+TimeoutStartSec=300
+# Orin's GPU is shared with the CPU; keep the service from starving the rest of the box.
+Nice=5
+# Logs land here for post-mortems.
+StandardOutput=append:/home/bianbu/image-generation/service.log
+StandardError=append:/home/bianbu/image-generation/service.log
+
+[Install]
+WantedBy=multi-user.target
