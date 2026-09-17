@@ -260,6 +260,23 @@ SD1.5 Q8_0，8 线程：**64.2 秒/步**；文本编码 0.86 s；20 步约 21 �
 
 ---
 
+## 示例出图
+
+`samples/` 里是这台 K3 上的实际输出，按时间顺序：
+
+| | |
+| --- | --- |
+| ![ONNX 引擎首次跑通](samples/first_onnx.png)<br>`first_onnx.png` —— ONNX 引擎第一次跑通，SD-Turbo 512×512 | ![雪地红狐](samples/fox.png)<br>`fox.png` —— `generate.py` 默认参数，英文提示词 |
+| ![设备上重跑](samples/fox_device.png)<br>`fox_device.png` —— 同一提示词在设备上重跑，确认可复现 | ![灯塔](samples/api_lighthouse.png)<br>`api_lighthouse.png` —— 走 HTTP API（`server.py`）出的图 |
+
+`api_resp.json` 是出灯塔那张图时 `/api/generate` 的原始响应体，含 base64 图像与耗时信息。
+
+```bash
+python3 generate.py -p "a red fox sitting in a snowy forest, soft morning light" -o output/fox.png
+```
+
+---
+
 ## 踩过的两个坑（都会让出图变成噪点，且不报错）
 
 1. **`pad_token` 不是 `<|endoftext|>`。**
